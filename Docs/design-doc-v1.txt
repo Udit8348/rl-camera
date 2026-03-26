@@ -1,0 +1,825 @@
+You are building a Unity MVP called CameraLab.
+
+Your job is to produce a clean, extensible, Unity-based photography training simulator that is actually useful for teaching beginners. The top two priorities are:
+
+1. Extensibility:
+- The MVP must be built on a foundation that can later support more scenes, more lesson types, more subjects, more optics realism, and more game systems without major rewrites.
+- The codebase must be data-driven where possible and organized around stable core abstractions.
+
+2. Educational accuracy:
+- The MVP does NOT need physically perfect optics.
+- It DOES need to be correct enough to teach the right intuition.
+- Cause-and-effect must be trustworthy:
+  - aperture affects brightness and depth of field
+  - shutter speed affects brightness and motion blur / camera shake risk
+  - ISO affects brightness and noise
+  - focal length affects framing and shake sensitivity
+  - focus distance affects sharpness plane
+  - white balance affects color cast relative to scene lighting
+
+Build the MVP so it teaches these correctly and visibly.
+
+The code should be production-minded, modular, readable, inspector-friendly, and easy to tune.
+
+==================================================
+1. PRODUCT DEFINITION
+==================================================
+
+CameraLab is a Unity desktop MVP for learning digital camera basics through interactive simulation.
+
+The player enters a curated scene, adjusts camera settings, sees the live preview change, captures a shot, and gets feedback explaining why the image is too dark, blurry, noisy, or color-shifted.
+
+This is NOT:
+- a full photography game
+- a pro camera brand emulator
+- a physically exact ray-traced optics simulator
+- an open world game
+
+This IS:
+- a focused photography learning sandbox
+- a curated set of scenes
+- a system that teaches exposure, blur, focus, and white balance
+- a strong technical foundation for future expansion
+
+==================================================
+2. MVP GOALS
+==================================================
+
+The MVP must help a beginner answer these questions:
+
+- Why is my image too dark or too bright?
+- Why is my subject blurry?
+- Why is my background blurry or sharp?
+- Why is the image noisy?
+- Why does the image look too warm or too cool?
+
+The MVP must support:
+
+- Sandbox mode
+- Guided challenge mode
+- Real-time preview
+- Capture + review
+- Rule-based coaching
+
+==================================================
+3. HARD SCOPE BOUNDARIES
+==================================================
+
+IN SCOPE:
+- Unity desktop app
+- 3 scenes minimum, designed to stress different camera tradeoffs
+- 1 controllable camera
+- Manual mode only for MVP
+- Adjustable:
+  - aperture
+  - shutter speed
+  - ISO
+  - focal length
+  - focus distance
+  - white balance preset
+  - tripod on/off
+- Live preview and post-process driven output
+- Capture screenshot with metadata
+- Simple scoring and coaching
+
+OUT OF SCOPE:
+- RAW workflow
+- flash
+- advanced autofocus modes
+- burst shooting
+- interchangeable gear inventory
+- sensor brand emulation
+- path tracing
+- exact optical bokeh simulation
+- open world navigation
+- multiplayer
+- career progression
+- economy systems
+
+==================================================
+4. CRITICAL FOUNDATION REQUIREMENTS
+==================================================
+
+A. EXTENSIBILITY REQUIREMENT
+
+Design the MVP around stable, separable systems:
+
+- Scene data
+- Camera state
+- Simulation logic
+- Rendering/output effects
+- Evaluation/scoring
+- Coaching/lesson logic
+- UI
+
+Do NOT tightly couple UI code to simulation code.
+Do NOT hardcode scene-specific logic inside the camera scripts.
+Do NOT scatter effect formulas across random MonoBehaviours.
+
+Use ScriptableObjects for data-driven content.
+
+B. EDUCATIONAL ACCURACY REQUIREMENT
+
+The MVP should be “instructionally accurate,” meaning:
+- It teaches the right directional effects and tradeoffs.
+- It is internally consistent.
+- It is tunable.
+- It produces plausible photography outcomes.
+
+Where realism is simplified, prefer simple, explicit heuristic models that preserve correct intuition.
+
+Example:
+- DOF can be approximated with a heuristic depth blur model.
+- Motion blur can be approximated with shutter-speed-driven blur.
+- ISO noise can be approximated with a noise shader and shadow weighting.
+- White balance can be approximated with temperature mismatch tinting.
+
+But the causal relationships must remain correct.
+
+==================================================
+5. UNITY ARCHITECTURE
+==================================================
+
+Create the project using this architecture.
+
+Core runtime pipeline:
+
+SceneState + CameraState
+    -> ShotSimulationService
+    -> SimulationResult
+    -> PostFXController + ShotEvaluationService + CoachingEngine
+
+Build these systems.
+
+--------------------------------------------------
+5.1 DATA MODELS
+--------------------------------------------------
+
+Create serializable types and/or ScriptableObjects for:
+
+1. SceneConfig (ScriptableObject)
+Fields:
+- sceneId
+- displayName
+- environmentPrefab
+- subjectPrefab
+- defaultCameraSpawnTransform
+- ambientEV
+- sceneColorTemperatureK
+- subjectDistanceMeters
+- backgroundDistanceMeters
+- subjectSpeedMetersPerSecond
+- shakeDifficulty
+- challengeConfig reference (optional)
+- shortDescription
+
+2. ChallengeConfig (ScriptableObject)
+Fields:
+- challengeId
+- displayName
+- objectiveText
+- targetExposureRange
+- targetSharpnessRange
+- targetBlurGoal
+- targetWhiteBalanceRange
+- scoringWeights
+- coachingHints
+
+3. CameraPreset (ScriptableObject)
+Fields:
+- presetName
+- sensorFormat
+- minAperture
+- maxAperture
+- minShutter
+- maxShutter
+- minISO
+- maxISO
+- minFocalLength
+- maxFocalLength
+
+4. CapturedShotData
+Fields:
+- screenshot path or texture ref
+- sceneId
+- timestamp
+- aperture
+- shutterSpeed
+- iso
+- focalLength
+- focusDistance
+- whiteBalancePreset
+- tripodEnabled
+- SimulationResult snapshot
+- score summary
+- coaching messages
+
+--------------------------------------------------
+5.2 RUNTIME STATE
+--------------------------------------------------
+
+Create these runtime models:
+
+1. CameraState
+Fields:
+- apertureF
+- shutterSeconds
+- iso
+- focalLengthMm
+- focusDistanceMeters
+- whiteBalancePreset
+- tripodEnabled
+
+2. SceneState
+Fields:
+- ambientEV
+- sceneColorTemperatureK
+- subjectDistanceMeters
+- backgroundDistanceMeters
+- subjectSpeedMetersPerSecond
+- shakeDifficulty
+- challengeConfig
+
+3. SimulationResult
+Fields:
+- exposureOffsetStops
+- exposureNormalized01
+- dofBlurStrength
+- focusErrorMeters
+- focusSharpness01
+- subjectMotionBlur01
+- cameraShakeBlur01
+- totalBlur01
+- noiseAmount01
+- whiteBalanceMismatch01
+- finalImageQuality01
+- debugNotes list/string
+
+Use these as central data contracts.
+
+==================================================
+6. CORE SYSTEMS TO IMPLEMENT
+==================================================
+
+Implement the following systems as clean, separated classes.
+
+--------------------------------------------------
+6.1 CameraStateController
+--------------------------------------------------
+
+Responsibilities:
+- Own mutable CameraState
+- Provide inspector-visible current values
+- Expose methods for changing settings
+- Clamp settings to allowed ranges
+- Notify listeners when state changes
+
+Important:
+- UI must talk to this controller
+- Other systems should consume CameraState from here
+- Avoid directly wiring UI sliders into post-process scripts
+
+--------------------------------------------------
+6.2 SceneStateController
+--------------------------------------------------
+
+Responsibilities:
+- Load a SceneConfig
+- Instantiate environment and subject prefab
+- Expose current SceneState
+- Reset scene to defaults
+- Support scene switching cleanly
+
+--------------------------------------------------
+6.3 ShotSimulationService
+--------------------------------------------------
+
+This is the most important logic service.
+
+It must be implemented as a mostly pure calculation layer:
+- input: CameraState + SceneState
+- output: SimulationResult
+
+This service is the source of truth for teaching logic.
+
+Implement educationally correct heuristic formulas.
+
+==================================================
+7. SIMULATION RULES AND HEURISTICS
+==================================================
+
+Use formulas that are simple, readable, tunable, and directionally correct.
+
+--------------------------------------------------
+7.1 EXPOSURE MODEL
+--------------------------------------------------
+
+Use a simplified exposure relationship.
+
+Recommended approach:
+- Compute camera exposure value approximately from aperture, shutter, and ISO
+- Compare against scene ambient EV
+- Convert difference into exposureOffsetStops
+
+Suggested approximation:
+cameraEV100 = log2((apertureF * apertureF) / shutterSeconds)
+cameraEV = cameraEV100 - log2(iso / 100.0)
+exposureOffsetStops = sceneAmbientEV - cameraEV
+
+Interpretation:
+- positive offset means underexposed relative to scene
+- negative offset means overexposed
+- near zero is good exposure
+
+Also derive:
+exposureNormalized01 = value based on closeness to ideal exposure
+
+Make sure the signs and comments are clear and consistent throughout the code.
+
+Educational requirement:
+- opening aperture should brighten image
+- slower shutter should brighten image
+- higher ISO should brighten image
+- “equivalent exposure” settings should produce similar brightness but different blur/noise/DOF tradeoffs
+
+--------------------------------------------------
+7.2 DEPTH OF FIELD MODEL
+--------------------------------------------------
+
+We do not need exact optics, but we do need correct intuition.
+
+The DOF / blur model should increase background blur when:
+- aperture is wider (smaller f-number)
+- focal length is longer
+- subject is closer
+- background is farther behind subject
+- focus is correctly placed on subject
+
+Suggested heuristic:
+- compute subjectFocusDelta = abs(focusDistance - subjectDistance)
+- compute subjectSharpness from subjectFocusDelta
+- compute background separation = max(0, backgroundDistance - subjectDistance)
+- compute blur potential from:
+  - inverse aperture
+  - focal length factor
+  - inverse subject distance
+  - background separation
+
+Example directional model:
+apertureFactor = remap(1 / apertureF)
+focalLengthFactor = remap(focalLengthMm)
+distanceFactor = remap(1 / subjectDistanceMeters)
+backgroundSeparationFactor = remap(backgroundDistanceMeters - subjectDistanceMeters)
+
+dofBlurStrength = combined weighted function of these factors
+
+Important:
+- keep focus sharpness and background blur related but not identical
+- if focus is wrong, subject should soften even if blur potential is high
+- if aperture is narrow, background should remain sharper
+
+--------------------------------------------------
+7.3 FOCUS MODEL
+--------------------------------------------------
+
+Focus must be taught clearly.
+
+Implement:
+focusErrorMeters = abs(focusDistanceMeters - subjectDistanceMeters)
+
+Then compute:
+focusSharpness01 = function decreasing with focus error and becoming more forgiving at narrower apertures
+
+Educational requirement:
+- focusing closer or farther than subject should reduce subject sharpness
+- wider apertures should be less forgiving
+- narrower apertures should be more forgiving
+
+--------------------------------------------------
+7.4 SUBJECT MOTION BLUR MODEL
+--------------------------------------------------
+
+Motion blur should increase when:
+- shutter speed gets slower
+- subject speed is higher
+
+Suggested heuristic:
+motionExposure = shutterSeconds * subjectSpeedMetersPerSecond
+subjectMotionBlur01 = remap(motionExposure with tuning curve)
+
+Educational requirement:
+- fast shutter freezes movement better
+- slow shutter blurs moving subjects more
+
+--------------------------------------------------
+7.5 CAMERA SHAKE MODEL
+--------------------------------------------------
+
+Camera shake blur should increase when:
+- shutter speed gets slower
+- focal length gets longer
+- shakeDifficulty is higher
+- tripod is off
+
+Suggested heuristic:
+if tripodEnabled:
+    cameraShakeBlur01 = near zero
+else:
+    shakeRisk = shutterSeconds * focalLengthMm * shakeDifficulty * tuningScalar
+    cameraShakeBlur01 = remap(shakeRisk)
+
+Educational requirement:
+- longer focal lengths are harder to handhold
+- tripod stabilizes image
+- slow shutter handheld is risky
+
+--------------------------------------------------
+7.6 TOTAL BLUR MODEL
+--------------------------------------------------
+
+Combine subject motion blur, camera shake blur, and focus softness into a total blur score.
+
+But preserve separate metrics internally for coaching.
+
+Example:
+focusBlur01 = 1 - focusSharpness01
+totalBlur01 = weighted combine of:
+- focusBlur01
+- subjectMotionBlur01
+- cameraShakeBlur01
+
+--------------------------------------------------
+7.7 NOISE MODEL
+--------------------------------------------------
+
+Noise should increase when:
+- ISO is higher
+- image is strongly underexposed and then effectively “pushed”
+- darker scenes tend to reveal noise more
+
+Suggested heuristic:
+isoFactor = log2(iso / 100.0)
+underexposurePenalty = max(0, exposureOffsetStops)
+noiseAmount01 = weighted combine of isoFactor and underexposurePenalty, clamped 0..1
+
+Educational requirement:
+- raising ISO increases noise
+- underexposing and trying to rescue the shot should look noisier
+
+--------------------------------------------------
+7.8 WHITE BALANCE MODEL
+--------------------------------------------------
+
+White balance should be modeled as mismatch between scene lighting temperature and chosen preset.
+
+Create WB presets:
+- Auto
+- Daylight
+- Cloudy
+- Shade
+- Tungsten
+- Fluorescent
+
+Map each preset to an approximate temperature value.
+
+Suggested reference:
+- Daylight ~ 5500K
+- Cloudy ~ 6500K
+- Shade ~ 7500K
+- Tungsten ~ 3200K
+- Fluorescent ~ 4200K
+- Auto = sceneColorTemperatureK for MVP or near it
+
+Then:
+whiteBalanceMismatch01 = normalized difference between sceneColorTemperatureK and selected preset target
+
+Educational requirement:
+- wrong WB should produce visible warm/cool tint mismatch
+- correct preset should neutralize scene better
+
+==================================================
+8. RENDERING / VISUALIZATION STRATEGY
+==================================================
+
+Use Unity rendering plus simple, stable post-process style effects.
+
+Do NOT attempt perfect realism.
+
+Implement a PostFXController that consumes SimulationResult and updates visual output.
+
+Required visible effects:
+1. Exposure brightness adjustment
+2. White balance tint shift
+3. DOF / background blur approximation
+4. Motion blur approximation
+5. Camera shake blur approximation
+6. Noise overlay
+
+Implementation guidance:
+- Use URP if convenient
+- Prefer simple post-process materials / renderer features / image effects
+- Inspector tuning is important
+- Stable and legible beats fancy
+
+Visual teaching requirement:
+Each camera setting change must produce an obvious, understandable visual response in the preview.
+
+==================================================
+9. SHOT EVALUATION AND COACHING
+==================================================
+
+Implement separate systems for evaluation and coaching.
+
+--------------------------------------------------
+9.1 ShotEvaluationService
+--------------------------------------------------
+
+Responsibilities:
+- Convert SimulationResult + active challenge goals into score breakdowns
+- Return a transparent score object
+
+Create:
+ShotScoreBreakdown
+Fields:
+- exposureScore01
+- sharpnessScore01
+- noiseScore01
+- whiteBalanceScore01
+- overallScore01
+- passFail
+- objectiveNotes
+
+Keep scoring simple and interpretable.
+
+--------------------------------------------------
+9.2 CoachingEngine
+--------------------------------------------------
+
+Rule-based coaching only.
+
+Generate 1 to 3 concise feedback messages after each shot.
+
+Examples:
+- “The image is underexposed. Open the aperture, slow the shutter, or raise ISO.”
+- “The subject is blurred by motion. Use a faster shutter speed.”
+- “The subject is out of focus. Move the focus distance closer to the subject.”
+- “The background is too sharp. Use a wider aperture or increase subject-background separation.”
+- “The image is noisy because ISO is high and the shot is underexposed.”
+- “The white balance is too warm for this scene.”
+
+Important:
+- Keep the coaching tied to actual underlying metrics
+- Avoid vague messages
+- Make feedback educational, not just judgmental
+
+==================================================
+10. UI REQUIREMENTS
+==================================================
+
+Build a simple but polished MVP UI.
+
+Required screens/panels:
+1. Main Menu
+- Start Sandbox
+- Start Challenge
+- Quit
+
+2. Scene Selection
+- choose from available scenes
+
+3. Main Simulation HUD
+- live preview area
+- camera settings controls
+- exposure meter readout
+- current scene name
+- challenge objective text if applicable
+- capture button
+- reset shot button
+
+4. Review Panel
+- captured image
+- settings summary
+- score breakdown
+- coaching messages
+- retry button
+- next challenge / back button
+
+UI controls required:
+- aperture selector
+- shutter speed selector
+- ISO selector
+- focal length slider
+- focus distance slider
+- white balance dropdown
+- tripod toggle
+
+Make the UI clean and easy to extend.
+
+==================================================
+11. INITIAL CONTENT REQUIREMENTS
+==================================================
+
+Implement at least 3 scenes for the MVP.
+
+Scene 1: Outdoor Portrait Daylight
+Purpose:
+- teach exposure basics
+- teach background blur
+Suggested defaults:
+- ambientEV high
+- 5500K light
+- subject close
+- background far
+
+Scene 2: Indoor Tungsten Room
+Purpose:
+- teach white balance
+- teach low-light tradeoffs
+Suggested defaults:
+- lower EV
+- 3200K light
+- static subject
+
+Scene 3: Moving Subject / Sports
+Purpose:
+- teach shutter speed and motion blur
+Suggested defaults:
+- medium/high EV
+- moving subject
+- moderate subject distance
+
+Optional Scene 4: Night Street
+Purpose:
+- teach ISO/noise/shake tradeoffs
+
+Optional Scene 5: Close-Up Object
+Purpose:
+- teach focus precision and shallow DOF
+
+Create each scene from SceneConfig assets.
+
+==================================================
+12. CHALLENGE MODE REQUIREMENTS
+==================================================
+
+Implement a minimal challenge mode with scene-specific goals.
+
+Example challenges:
+1. “Create a bright, sharp portrait with blurred background.”
+2. “Correct the warm color cast in this indoor scene.”
+3. “Freeze the moving subject.”
+4. “Capture a usable low-light image with acceptable noise.”
+
+Challenge mode should:
+- load a scene
+- show objective text
+- evaluate captured shot
+- provide pass/fail plus score
+
+==================================================
+13. FOLDER / CODE ORGANIZATION
+==================================================
+
+Use a clean Unity project structure like this:
+
+Assets/
+  CameraLab/
+    Scripts/
+      Core/
+        Models/
+        Services/
+        Controllers/
+        Evaluation/
+        Coaching/
+      UI/
+      SceneManagement/
+      Rendering/
+      Utilities/
+    ScriptableObjects/
+      Scenes/
+      Challenges/
+      Presets/
+    Prefabs/
+      Environment/
+      Subjects/
+      UI/
+    Materials/
+    Shaders/
+    Art/
+    Scenes/
+    Resources/
+
+==================================================
+14. IMPLEMENTATION PLAN
+==================================================
+
+Build in this order.
+
+Phase 1:
+- project setup
+- SceneConfig / ChallengeConfig / CameraPreset assets
+- CameraState and SceneState models
+- CameraStateController
+- SceneStateController
+- one scene loaded in editor
+- basic live controls for aperture/shutter/ISO
+- ShotSimulationService exposure calculation only
+- preview brightness adjustment
+
+Phase 2:
+- add focal length, focus distance, tripod, white balance
+- implement focus model
+- implement DOF blur heuristic
+- implement WB tint
+- implement motion blur
+- implement camera shake blur
+- implement noise
+
+Phase 3:
+- implement CaptureManager
+- implement ShotEvaluationService
+- implement CoachingEngine
+- implement Review Panel
+
+Phase 4:
+- add remaining scenes
+- add challenge mode
+- tune formulas and inspector values
+- add comments and cleanup
+
+==================================================
+15. ACCEPTANCE CRITERIA
+==================================================
+
+The MVP is acceptable only if all of the following are true:
+
+Extensibility:
+- Scenes can be added without rewriting core simulation code
+- New challenge types can be added through data assets and evaluation rules
+- Camera formulas are centralized in ShotSimulationService
+- UI does not directly own camera logic or scoring logic
+- Most tunable scene/challenge parameters are data-driven
+
+Educational correctness:
+- Opening aperture increases brightness and blur potential
+- Slowing shutter increases brightness and motion / shake risk
+- Increasing ISO increases brightness and noise
+- Wrong focus distance softens the subject
+- Wrong white balance causes visible color cast
+- Longer focal length increases shake sensitivity
+- Equivalent exposures can differ in blur/noise/DOF outcomes
+
+Usability:
+- The user can adjust settings and see the preview respond immediately
+- Capturing a shot shows clear score + coaching
+- At least 3 scenes work end-to-end
+- At least 3 challenge flows work end-to-end
+
+==================================================
+16. CODING QUALITY REQUIREMENTS
+==================================================
+
+Follow these coding standards:
+
+- Use C#
+- Prefer small focused classes
+- Use clear naming
+- Add comments for non-obvious formulas
+- Avoid giant god classes
+- Separate calculation from rendering side effects
+- Use ScriptableObjects and serialized fields appropriately
+- Keep inspector tuning easy
+- Keep magic numbers centralized as tunables where possible
+- Make the project understandable by another engineer
+
+==================================================
+17. DELIVERABLES
+==================================================
+
+Produce:
+1. Unity C# scripts for the architecture above
+2. ScriptableObject definitions
+3. A minimal working scene setup path
+4. UI hookup code
+5. Placeholder prefabs / references where assets are needed
+6. Clear TODO markers for any art-dependent components
+7. A README explaining:
+   - project structure
+   - scene setup
+   - how simulation formulas work
+   - how to add a new scene
+   - how to add a new challenge
+
+==================================================
+18. FINAL INSTRUCTION
+==================================================
+
+Do not overbuild. Do not chase perfect realism.
+
+Build a clean MVP with a strong foundation:
+- extensible by design
+- accurate enough for teaching
+- easy to tune
+- easy to expand
+
+Start by scaffolding the architecture and implementing one fully working scene, then expand to the remaining scenes and challenge mode.
