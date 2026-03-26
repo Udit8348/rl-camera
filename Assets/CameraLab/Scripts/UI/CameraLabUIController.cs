@@ -266,7 +266,11 @@ namespace CameraLab.UI
 
             var previewPanel = RuntimeUiFactory.CreatePanel("PreviewPanel", body.transform, new Color(0.04f, 0.05f, 0.07f, 0.95f));
             RuntimeUiFactory.AddLayoutElement(previewPanel, flexibleWidth: 7f);
-            previewImage = previewPanel.AddComponent<RawImage>();
+            var previewSurface = new GameObject("PreviewSurface", typeof(RectTransform), typeof(RawImage));
+            previewSurface.transform.SetParent(previewPanel.transform, false);
+            var previewSurfaceRect = previewSurface.GetComponent<RectTransform>();
+            RuntimeUiFactory.Stretch(previewSurfaceRect, Vector2.zero, Vector2.one, new Vector2(8f, 8f), new Vector2(-8f, -8f));
+            previewImage = previewSurface.GetComponent<RawImage>();
             previewImage.texture = previewTexture;
             previewImage.color = Color.white;
             previewImage.raycastTarget = false;
@@ -360,7 +364,11 @@ namespace CameraLab.UI
 
             var left = RuntimeUiFactory.CreatePanel("CapturedImagePanel", layoutObject.transform, new Color(0.04f, 0.05f, 0.07f, 1f));
             RuntimeUiFactory.AddLayoutElement(left, flexibleWidth: 7f);
-            reviewImage = left.AddComponent<RawImage>();
+            var reviewSurface = new GameObject("ReviewSurface", typeof(RectTransform), typeof(RawImage));
+            reviewSurface.transform.SetParent(left.transform, false);
+            var reviewSurfaceRect = reviewSurface.GetComponent<RectTransform>();
+            RuntimeUiFactory.Stretch(reviewSurfaceRect, Vector2.zero, Vector2.one, new Vector2(8f, 8f), new Vector2(-8f, -8f));
+            reviewImage = reviewSurface.GetComponent<RawImage>();
             reviewImage.color = Color.white;
             reviewImage.raycastTarget = false;
 

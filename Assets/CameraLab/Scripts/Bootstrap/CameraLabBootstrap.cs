@@ -13,19 +13,16 @@ namespace CameraLab.Bootstrap
 {
     public class CameraLabBootstrap : MonoBehaviour
     {
-        private static bool bootstrapped;
-
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void AutoBootstrap()
         {
-            if (bootstrapped || FindFirstObjectByType<CameraLabBootstrap>() != null)
+            if (FindAnyObjectByType<CameraLabBootstrap>() != null)
             {
                 return;
             }
 
             var bootstrapObject = new GameObject("CameraLabBootstrap");
             bootstrapObject.AddComponent<CameraLabBootstrap>();
-            bootstrapped = true;
         }
 
         private void Awake()

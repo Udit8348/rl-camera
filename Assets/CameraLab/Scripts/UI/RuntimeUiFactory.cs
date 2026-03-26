@@ -11,20 +11,19 @@ namespace CameraLab.UI
     {
         private static Font cachedFont;
         private static Sprite cachedSprite;
-        private static Sprite cachedKnobSprite;
-        private static Sprite cachedCheckmarkSprite;
+        private static Texture2D cachedTexture;
 
-        public static Font DefaultFont => cachedFont ?? (cachedFont = Resources.GetBuiltinResource<Font>("Arial.ttf"));
+        public static Font DefaultFont => cachedFont ?? (cachedFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
 
-        private static Sprite DefaultSprite => cachedSprite ?? (cachedSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/UISprite.psd"));
+        private static Sprite DefaultSprite => cachedSprite ?? (cachedSprite = CreateRuntimeSprite());
 
-        private static Sprite KnobSprite => cachedKnobSprite ?? (cachedKnobSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd"));
+        private static Sprite KnobSprite => DefaultSprite;
 
-        private static Sprite CheckmarkSprite => cachedCheckmarkSprite ?? (cachedCheckmarkSprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Checkmark.psd"));
+        private static Sprite CheckmarkSprite => DefaultSprite;
 
         public static void EnsureEventSystem()
         {
-            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            var eventSystem = Object.FindAnyObjectByType<EventSystem>();
             if (eventSystem == null)
             {
                 var eventSystemObject = new GameObject("EventSystem");
@@ -88,7 +87,7 @@ namespace CameraLab.UI
             panel.transform.SetParent(parent, false);
             var image = panel.GetComponent<Image>();
             image.sprite = DefaultSprite;
-            image.type = Image.Type.Sliced;
+            image.type = Image.Type.Simple;
             image.color = color;
             return panel;
         }
@@ -115,7 +114,7 @@ namespace CameraLab.UI
             buttonObject.transform.SetParent(parent, false);
             var image = buttonObject.GetComponent<Image>();
             image.sprite = DefaultSprite;
-            image.type = Image.Type.Sliced;
+            image.type = Image.Type.Simple;
             image.color = backgroundColor;
 
             var button = buttonObject.GetComponent<Button>();
@@ -143,7 +142,7 @@ namespace CameraLab.UI
             background.transform.SetParent(sliderObject.transform, false);
             var backgroundImage = background.GetComponent<Image>();
             backgroundImage.sprite = DefaultSprite;
-            backgroundImage.type = Image.Type.Sliced;
+            backgroundImage.type = Image.Type.Simple;
             backgroundImage.color = new Color(0.2f, 0.22f, 0.27f, 1f);
             Stretch(background.GetComponent<RectTransform>(), new Vector2(0f, 0.25f), new Vector2(1f, 0.75f), new Vector2(0f, 0f), new Vector2(0f, 0f));
 
@@ -155,7 +154,7 @@ namespace CameraLab.UI
             fill.transform.SetParent(fillArea.transform, false);
             var fillImage = fill.GetComponent<Image>();
             fillImage.sprite = DefaultSprite;
-            fillImage.type = Image.Type.Sliced;
+            fillImage.type = Image.Type.Simple;
             fillImage.color = new Color(0.89f, 0.57f, 0.22f, 1f);
             Stretch(fill.GetComponent<RectTransform>(), new Vector2(0f, 0f), new Vector2(1f, 1f), Vector2.zero, Vector2.zero);
 
@@ -193,7 +192,7 @@ namespace CameraLab.UI
             backgroundRect.anchoredPosition = new Vector2(14f, 0f);
             var backgroundImage = background.GetComponent<Image>();
             backgroundImage.sprite = DefaultSprite;
-            backgroundImage.type = Image.Type.Sliced;
+            backgroundImage.type = Image.Type.Simple;
             backgroundImage.color = new Color(0.17f, 0.2f, 0.24f, 1f);
 
             var checkmark = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
@@ -236,6 +235,33 @@ namespace CameraLab.UI
             rectTransform.anchorMax = anchorMax;
             rectTransform.offsetMin = offsetMin;
             rectTransform.offsetMax = offsetMax;
+        }
+
+        private static Sprite CreateRuntimeSprite()
+        {
+            if (cachedTexture == null)
+            {
+                cachedTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false)
+                {
+                    name = "CameraLabUiSprite",
+                    hideFlags = HideFlags.HideAndDontSave
+                };
+                cachedTexture.SetPixels(new[]
+                {
+                    Color.white, Color.white,
+                    Color.white, Color.white
+                });
+                cachedTexture.Apply();
+            }
+
+            var sprite = Sprite.Create(
+                cachedTexture,
+                new Rect(0f, 0f, cachedTexture.width, cachedTexture.height),
+                new Vector2(0.5f, 0.5f),
+                100f);
+            sprite.name = "CameraLabUiSprite";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
         }
     }
 }

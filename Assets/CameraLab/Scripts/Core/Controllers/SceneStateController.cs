@@ -116,7 +116,7 @@ namespace CameraLab.Core.Controllers
                 return;
             }
 
-            var lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
+            var lights = FindObjectsByType<Light>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
             for (var i = 0; i < lights.Length; i++)
             {
                 if (lights[i].type == LightType.Directional)
