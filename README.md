@@ -222,3 +222,4 @@ They cover the key teaching relationships:
 - Placeholder environments and subjects are intentionally primitive. The stable API surface is the priority for the MVP foundation.
 - Runtime UI is built in code so the project runs from a blank sample scene; moving this to authored prefabs later should not affect the simulation/evaluation stack.
 - Art-dependent TODOs are marked in [`PlaceholderSceneFactory.cs`](/Users/udit/rl/rl-camera/Assets/CameraLab/Scripts/Content/PlaceholderSceneFactory.cs).
+- Try to implement a PufferLib integration
